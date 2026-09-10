@@ -31,7 +31,7 @@ export class Builder {
       id: this.chunks.length, shape: 'box',
       x, y: y0 + sy / 2, z, sx, sy, sz, yaw: o.yaw || 0,
       mat, role, rig: !!o.rig, tag: o.tag || null,
-      color: o.color ?? m.color, skin: o.skin || (m.fragile ? 'glass' : 'plain'),
+      color: o.color ?? m.color, skin: o.skin || (m.fragile ? 'glass' : mat === 'brick' ? 'brick' : 'plain'),
       fragile: o.fragile ?? !!m.fragile,
       support: o.support ?? SUPPORT_ROLES.has(role),
     };

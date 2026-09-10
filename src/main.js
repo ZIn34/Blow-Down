@@ -94,7 +94,7 @@ class Game {
 
     const b = new Builder();
     L.build(b);
-    this.view.setTheme(L.theme, Math.max(30, L.camera.dist * 0.75));
+    this.view.setTheme(L.theme, Math.max(30, L.camera.dist * 0.75), L.setting);
     const protect = buildProps(b.props, { root: this.view.level, R, world: this.world });
     this.chunkView = new ChunkView(this.view.level, b.chunks, this.view.theme.night);
     this.rng = mulberry32(SEED + i);
@@ -476,7 +476,7 @@ class Game {
         `chunks ${st.alive}/${st.total}\ndust ${this.fx.puffs.length}  bits ${this.fx.bits.length}\n` +
         `state ${s}${this.slowmo ? '  (slow-mo)' : ''}`);
     }
-    this.view.render();
+    this.view.render(dt);
   }
 
   // Dev helper for tuning: run a whole attempt instantly from the console.

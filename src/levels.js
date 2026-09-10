@@ -116,7 +116,7 @@ const CHAPTER1 = [
   },
 
   {
-    name: 'Corner Bank', theme: 'day',
+    name: 'Corner Bank', setting: 'city', theme: 'day',
     intro: 'No room to tip this one. Blow the middle columns first and it caves in on itself.',
     hint: 'The two middle columns at 0.0s, then the outer ones about 0.3s later. You only need 8 charges.',
     maxCharges: 12, par: 8, stars: ['zone', 'budget', 'clean'],
@@ -156,7 +156,7 @@ const CHAPTER1 = [
   },
 
   {
-    name: 'Parking Garage', theme: 'day',
+    name: 'Parking Garage', setting: 'city', theme: 'day',
     intro: "The shops downstairs are still open, so nothing goes on the ground floor. Rig the floors above. And mind that news van.",
     hint: 'Rig every column on floor 1 and fire them all together. It drops straight onto the ground floor. If one side goes first, it lurches onto the van.',
     maxCharges: 8, par: 6, stars: ['zone', 'budget', 'clean'],
@@ -208,7 +208,7 @@ const CHAPTER1 = [
   },
 
   {
-    name: 'The Grand Hotel', theme: 'dusk',
+    name: 'The Grand Hotel', setting: 'city', theme: 'dusk',
     intro: "Live TV. A hundred-year-old church on one side, parked cars on the other. Don't embarrass me.",
     hint: 'Middle columns first and the rest about 0.3s later, and it caves in. Or fire the street side first so it leans away from the church.',
     maxCharges: 24, par: 16, maxDelay: 3, stars: ['zone', 'budget', 'clean'],

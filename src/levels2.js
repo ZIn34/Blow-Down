@@ -91,7 +91,7 @@ export const CHAPTER2 = [
   },
 
   {
-    name: 'Office Block', theme: 'day',
+    name: 'Office Block', setting: 'city', theme: 'day',
     intro: "There's an empty lot out front, and a train parked behind. Tipping it takes a lot fewer charges than dropping it.",
     hint: 'Only the front row of columns, on the side facing the empty lot. Five charges.',
     maxCharges: 10, par: 5, stars: ['zone', 'budget', 'clean'],
@@ -110,7 +110,7 @@ export const CHAPTER2 = [
   },
 
   {
-    name: 'Stadium Lights', theme: 'dusk',
+    name: 'Stadium Lights', setting: 'city', theme: 'dusk',
     intro: 'Three floodlight towers, one timeline. All three have to land on the pitch, not in the stands.',
     hint: 'A falling tower goes toward the side you cut. Put charges on the pitch side of each base, two per tower.',
     maxCharges: 8, par: 6, stars: ['zone', 'budget', 'clean'],
@@ -124,7 +124,7 @@ export const CHAPTER2 = [
   },
 
   {
-    name: 'Lighthouse', theme: 'dusk',
+    name: 'Lighthouse', setting: 'coast', theme: 'dusk',
     intro: "Old brick again. Put it in the sea, not on the keeper's cottage or the boathouse.",
     hint: 'Two charges, side by side, on the side facing the sea.',
     maxCharges: 4, par: 2, minSupport: 0.3, stars: ['zone', 'budget', 'clean'],
@@ -139,7 +139,7 @@ export const CHAPTER2 = [
       b.cyl(0, 24, 0, 3.3, 0.4, 'steel', { role: 'slab', color: 0x333333 });
       b.cyl(0, 24.4, 0, 1.8, 2.6, 'steel', { role: 'clad', skin: 'lamp', color: 0xffffff });
       b.cone(0, 27, 0, 2.1, 1.8, 'steel', { color: 0xd9412b });
-      b.prop('water', 0, 0, { x0: -60, z0: 6, x1: 60, z1: 70 });
+      b.prop('water', 0, 0, { x0: -700, z0: 6, x1: 700, z1: 700 });
       b.prop('house', -10, -2, { w: 7, d: 6, h: 3.5, protect: "Keeper's cottage", color: 0xf2eee6, roof: 0x3f5f7a });
       b.prop('shop', 11, 0.5, { w: 6, d: 6, h: 4, color: 0x8a6a4a, awning: 0x3f5f7a, protect: 'Boathouse' });
       b.prop('rocks', -6, 4, { n: 6 });
@@ -167,7 +167,7 @@ export const CHAPTER2 = [
   },
 
   {
-    name: 'Clock Tower', theme: 'day',
+    name: 'Clock Tower', setting: 'city', theme: 'day',
     intro: 'The bottom three floors are a listed monument and have to stay. Only the top comes down, and you can only rig four columns.',
     hint: 'The two columns on the side facing the square. The top half tips into the square and leaves the bottom standing.',
     maxCharges: 4, par: 2, stars: ['zone', 'budget', 'clean'],
@@ -190,7 +190,7 @@ export const CHAPTER2 = [
   },
 
   {
-    name: 'Twin Apartments', theme: 'night',
+    name: 'Twin Apartments', setting: 'city', theme: 'night',
     intro: "Two apartment blocks with a playground between them. Both have to go tonight, and neither can touch the swings.",
     hint: 'Rig the outer row of each block, the sides facing away from the playground. Both tip outward.',
     maxCharges: 14, par: 10, stars: ['zone', 'budget', 'clean'],
@@ -209,7 +209,7 @@ export const CHAPTER2 = [
   },
 
   {
-    name: 'The Skyscraper', theme: 'dusk',
+    name: 'The Skyscraper', setting: 'city', theme: 'dusk',
     intro: 'Fourteen floors, a museum, an office tower and apartments packed around it, and the whole city watching. This is the big one.',
     hint: 'Implode it: the middle ground-floor columns at 0.0s and the rest about 0.3s later. Charges on floor 2 are optional.',
     maxCharges: 24, par: 16, maxDelay: 3, stars: ['zone', 'budget', 'clean'],

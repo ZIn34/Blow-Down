@@ -1,10 +1,11 @@
 // Scene, lights, themes, and the instanced renderer for building chunks.
 import * as THREE from 'three';
+import { Scenery, SKIES } from './scenery.js';
 
 const THEMES = {
-  day:   { sky: 0x9fd3f0, fog: 0xcfe6f2, ground: 0x7fae5a, hemiSky: 0xdff1ff, hemiGround: 0x5d7a3a, hemi: 1.1, sun: 0xfff1d6, sunI: 2.4, night: false },
-  dusk:  { sky: 0xf0a878, fog: 0xe8b894, ground: 0x6f9150, hemiSky: 0xffd2b0, hemiGround: 0x4d5a36, hemi: 0.9, sun: 0xffb070, sunI: 2.0, night: false },
-  night: { sky: 0x101a33, fog: 0x1a2440, ground: 0x2c3f2a, hemiSky: 0x5a6f9f, hemiGround: 0x1a2218, hemi: 0.55, sun: 0xaabfff, sunI: 0.7, night: true },
+  day:   { ground: 0x86b560, hemiSky: 0xd8ecff, hemiGround: 0x6d8a48, hemi: 1.5, sun: 0xfff0d8, sunI: 3.4, exposure: 1.05, night: false },
+  dusk:  { ground: 0x7a9a55, hemiSky: 0xffcfa8, hemiGround: 0x5a5a44, hemi: 1.2, sun: 0xffa860, sunI: 3.0, exposure: 1.1, night: false },
+  night: { ground: 0x34503a, hemiSky: 0x6a82b8, hemiGround: 0x1c2418, hemi: 0.9, sun: 0xb4c8ff, sunI: 0.9, exposure: 1.2, night: true },
 };
 
 export class View3D {
@@ -14,8 +15,10 @@ export class View3D {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;   // filmic colour grading
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(55, 9 / 16, 0.3, 800);
+    this.camera = new THREE.PerspectiveCamera(55, 9 / 16, 0.3, 900);
+    this.scenery = new Scenery(this.scene);
 
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
     this.sun = new THREE.DirectionalLight(0xffffff, 2);
@@ -25,8 +28,8 @@ export class View3D {
     this.sun.shadow.normalBias = 0.04;
     this.scene.add(this.hemi, this.sun, this.sun.target);
 
-    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ map: groundTexture() }));
-    this.ground.material.map.repeat.set(90, 90);
+    this.ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshLambertMaterial({ map: groundTexture() }));
+    this.ground.material.map.repeat.set(70, 70);
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
@@ -36,16 +39,22 @@ export class View3D {
     this.theme = THEMES.day;
   }
 
-  setTheme(name, span = 40) {
+  setTheme(name, span = 40, setting = 'country') {
     const t = this.theme = THEMES[name] || THEMES.day;
-    this.scene.background = new THREE.Color(t.sky);
-    this.scene.fog = new THREE.Fog(t.fog, 90, 320);
+    const sky = SKIES[name] || SKIES.day;
+    // fog fades into the sky's horizon colour so the world has no hard edge
+    this.scene.background = new THREE.Color(sky.horizon);
+    this.scene.fog = new THREE.Fog(sky.horizon, 150, 520);
+    this.renderer.toneMappingExposure = t.exposure;
     this.hemi.color.setHex(t.hemiSky);
     this.hemi.groundColor.setHex(t.hemiGround);
     this.hemi.intensity = t.hemi;
     this.sun.color.setHex(t.sun);
     this.sun.intensity = t.sunI;
-    this.sun.position.set(-span * 0.8, span * 1.4, -span * 0.6);
+    // low sun at dusk, high sun by day
+    const low = name === 'dusk' ? 0.55 : name === 'night' ? 1.1 : 1.4;
+    this.sun.position.set(-span * 0.8, span * low, -span * 0.6);
+    this.scenery.set(name, this.sun.position.clone(), setting);
     const s = this.sun.shadow.camera;
     s.left = s.bottom = -span; s.right = s.top = span; s.near = 1; s.far = span * 5;
     s.updateProjectionMatrix();
@@ -67,7 +76,10 @@ export class View3D {
     this.camera.updateProjectionMatrix();
   }
 
-  render() { this.renderer.render(this.scene, this.camera); }
+  render(dt = 0) {
+    this.scenery.update(dt, this.camera);
+    this.renderer.render(this.scene, this.camera);
+  }
 }
 
 // ---- chunk rendering -----------------------------------------------------
@@ -169,8 +181,10 @@ function skinMaterial(skin, night) {
     mat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xfff2c0, emissiveIntensity: night ? 1.2 : 0.7 });
   } else if (skin === 'clock') {
     mat = new THREE.MeshLambertMaterial({ color: 0xffffff, map: clockTexture() });
+  } else if (skin === 'brick') {
+    mat = new THREE.MeshLambertMaterial({ color: 0xffffff, map: brickTexture() });
   } else {
-    mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    mat = new THREE.MeshLambertMaterial({ color: 0xffffff, map: blockTexture() });
   }
   mat.userData.shared = true;
   return skinCache[key] = mat;
@@ -189,14 +203,72 @@ function canvasTex(w, h, draw, repeat = false) {
   return t;
 }
 
-function windowTexture() {
-  return canvasTex(64, 64, (g, w, h) => {
+// Faint grain so flat faces don't look like plastic.
+function grain(g, w, h, n, dark = 0.06, light = 0.05) {
+  let seed = 99;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = rnd() < 0.5 ? `rgba(0,0,0,${dark * rnd()})` : `rgba(255,255,255,${light * rnd()})`;
+    g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 3, 1 + rnd() * 3);
+  }
+}
+
+// Darkened edges and a lit top rim, so every chunk reads as a solid block.
+function bevel(g, w, h, k = 1) {
+  const e = Math.round(w * 0.09);
+  const edge = (x0, y0, x1, y1, a) => {
+    const gr = g.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, `rgba(0,0,0,${a * k})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+  };
+  edge(0, h, 0, h - e, 0.32); g.fillRect(0, h - e, w, e);
+  edge(0, 0, e, 0, 0.22); g.fillRect(0, 0, e, h);
+  edge(w, 0, w - e, 0, 0.22); g.fillRect(w - e, 0, e, h);
+  g.fillStyle = `rgba(255,255,255,${0.18 * k})`; g.fillRect(0, 0, w, Math.max(2, e * 0.35));
+  g.strokeStyle = `rgba(0,0,0,${0.35 * k})`; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+}
+
+function blockTexture() {
+  return canvasTex(128, 128, (g, w, h) => {
     g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
-    g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(0, h - 8, w, 8);
-    g.fillStyle = '#e8e8e8'; g.fillRect(14, 12, 36, 34);
-    g.fillStyle = '#3c5670'; g.fillRect(17, 15, 30, 28);
-    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(17, 15, 10, 28);
-    g.fillStyle = '#e8e8e8'; g.fillRect(31, 15, 2, 28);
+    grain(g, w, h, 900);
+    bevel(g, w, h);
+  });
+}
+
+function brickTexture() {
+  return canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#d9d2c8'; g.fillRect(0, 0, w, h);          // mortar
+    const rows = 12, cols = 5, bh = h / rows, bw = w / cols;
+    let seed = 5;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let r = 0; r < rows; r++) {
+      for (let c = -1; c <= cols; c++) {
+        const x = c * bw + (r % 2) * bw / 2, v = 200 + rnd() * 55 | 0;
+        g.fillStyle = `rgb(${v},${v - 8},${v - 12})`;
+        g.fillRect(x + 2, r * bh + 2, bw - 4, bh - 4);
+      }
+    }
+    grain(g, w, h, 1400, 0.1, 0.05);
+    bevel(g, w, h, 0.8);
+  });
+}
+
+function windowTexture() {
+  return canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    grain(g, w, h, 700);
+    g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(24, 90, 80, 6);           // sill shadow
+    g.fillStyle = '#ececec'; g.fillRect(24, 20, 80, 70);                   // frame
+    const gr = g.createLinearGradient(0, 26, 0, 84);
+    gr.addColorStop(0, '#6f8fae'); gr.addColorStop(1, '#2c4058');
+    g.fillStyle = gr; g.fillRect(30, 26, 68, 58);                          // glass
+    g.fillStyle = 'rgba(255,255,255,0.28)';
+    g.beginPath(); g.moveTo(30, 26); g.lineTo(58, 26); g.lineTo(30, 62); g.fill();  // reflection
+    g.fillStyle = '#ececec'; g.fillRect(62, 26, 4, 58); g.fillRect(30, 52, 68, 3);
+    g.fillStyle = '#f6f6f6'; g.fillRect(20, 88, 88, 5);                    // sill
+    bevel(g, w, h, 0.9);
   });
 }
 
@@ -218,19 +290,35 @@ function clockTexture() {
 }
 
 function windowGlowTexture() {
-  return canvasTex(64, 64, (g) => {
-    g.fillStyle = '#000'; g.fillRect(0, 0, 64, 64);
-    g.fillStyle = '#fff'; g.fillRect(17, 15, 30, 28);
+  return canvasTex(128, 128, (g) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, 128, 128);
+    let seed = 3;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const gr = g.createLinearGradient(0, 26, 0, 84);
+    gr.addColorStop(0, '#fff'); gr.addColorStop(1, '#b08040');
+    g.fillStyle = gr; g.fillRect(30, 26, 68, 58);
+    g.fillStyle = `rgba(0,0,0,${0.3 + rnd() * 0.3})`; g.fillRect(62, 26, 36, 58);   // curtain
   });
 }
 
+// Grass with tufts and patches at two scales so the tiling doesn't show.
 function groundTexture() {
-  return canvasTex(64, 64, (g, w, h) => {
-    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 260; i++) {
-      const v = 200 + Math.random() * 55 | 0;
+  return canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#e6e6e6'; g.fillRect(0, 0, w, h);
+    let seed = 42;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 14; i++) {
+      const x = rnd() * w, y = rnd() * h, r = 20 + rnd() * 50;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      const v = rnd() < 0.5 ? '0,0,0' : '255,255,255';
+      gr.addColorStop(0, `rgba(${v},0.10)`); gr.addColorStop(1, `rgba(${v},0)`);
+      g.fillStyle = gr;
+      for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { g.save(); g.translate(dx, dy); g.fillRect(x - r, y - r, r * 2, r * 2); g.restore(); }
+    }
+    for (let i = 0; i < 2600; i++) {
+      const v = 175 + rnd() * 80 | 0;
       g.fillStyle = `rgb(${v},${v},${v})`;
-      g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 1.5, 2 + rnd() * 3);
     }
   }, true);
 }
