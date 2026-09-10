@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1f24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Blowdown</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./lib/three.module.js" } }</script>
+</head>
+<body>
+<div id="app">
+  <div id="frame">
+    <canvas id="view"></canvas>
+
+    <div id="hud" hidden data-mode="rig">
+      <div class="top">
+        <button id="btn-pause" class="icon" title="Pause (Esc)">❚❚</button>
+        <div class="title"><div id="lvl-num">JOB 1</div><div id="lvl-name"></div></div>
+        <div id="charges" class="pill">💣 0 / 0</div>
+      </div>
+      <div id="goals"></div>
+      <div id="wind" hidden><span id="wind-arrow">↑</span><small>WIND</small></div>
+      <div id="bubble" hidden><div class="avatar">👷</div><div><b>SPARKY</b><div id="bubble-text"></div></div></div>
+      <div id="toast" hidden></div>
+      <div class="bottom">
+        <div id="timeline">
+          <div class="tl-head"><span>TIMELINE</span><span id="tl-sel"></span><button id="btn-clear" class="link" hidden>Clear</button></div>
+          <div id="tl-track"><div id="tl-ticks"></div></div>
+        </div>
+        <button id="btn-detonate" disabled><span>DETONATE</span><small>Space</small></button>
+      </div>
+    </div>
+
+    <div id="countdown" hidden></div>
+    <div id="replay-badge" hidden><span>▶ REPLAY · SLOW-MO</span><button id="btn-skip">Skip</button></div>
+
+    <div id="result" class="panel" hidden>
+      <div id="res-title"></div>
+      <div id="res-stars"></div>
+      <ul id="res-list"></ul>
+      <div id="res-hint" hidden><div class="avatar">👷</div><div id="res-hint-text"></div></div>
+      <div class="buttons">
+        <button id="btn-replay" class="secondary">▶ Replay <small>V</small></button>
+        <button id="btn-retry" class="secondary">↻ Retry <small>R</small></button>
+        <button id="btn-next" class="primary">Next job ▶</button>
+      </div>
+      <button id="btn-levels" class="link">All jobs</button>
+    </div>
+
+    <div id="pause" class="panel" hidden>
+      <div class="ptitle">PAUSED</div>
+      <button id="btn-resume" class="primary">Resume</button>
+      <button id="btn-p-retry" class="secondary">Retry job</button>
+      <button id="btn-p-levels" class="secondary">All jobs</button>
+      <div class="keys">
+        <b>Mouse & keyboard</b>
+        Click a glowing spot: place or remove a charge<br>
+        Drag or right-drag: rotate · Middle or Shift-drag: move · Wheel: zoom<br>
+        A/D rotate · W/S zoom · Space detonate · R retry · V replay<br>
+        Tab select charge · ←/→ change its delay · Del remove it<br>
+        <b>Testing</b> F1 stats · [ ] previous/next job · T slow-mo
+      </div>
+    </div>
+
+    <div id="menu" class="screen" hidden>
+      <div class="logo">BLOW<span>DOWN</span></div>
+      <div class="tag">Demolition, done right.</div>
+      <div id="menu-stars"></div>
+      <div id="level-grid"></div>
+    </div>
+
+    <div id="loading" class="screen"><div class="logo">BLOW<span>DOWN</span></div><div class="tag">Loading…</div></div>
+    <div id="debug" hidden></div>
+  </div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
