@@ -1,4 +1,4 @@
-// Blowdown: game state, level loading, rigging, detonation, results.
+// Blowdown: game state, job loading, rigging, detonation, results.
 import * as THREE from 'three';
 import RAPIER from '../lib/rapier.es.js';
 import { Builder } from './builder.js';
@@ -11,20 +11,18 @@ import { OrbitCam } from './camera.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
 import { Recorder, Player } from './replay.js';
-import { evaluate, starLabel, loadProgress, saveProgress, unlockedCount, zonesOf } from './scoring.js';
+import { evaluate, starLabel, zonesOf, expertText } from './scoring.js';
 import { UI } from './ui.js';
+import { Menu } from './menu.js';
+import { Profile } from './profile.js';
+import { campaignJob, dailyJob, remixJob, availableRemixes } from './jobs.js';
+import { dayNumber, prepareDaily } from './dailygen.js';
+import { mulberry32, rigFromFilters, FIXED } from './solver.js';
+import { chargeTypes } from './shop.js';
+import { clipSupported, recordClip, shareClip, shareText } from './clip.js';
 
-const FIXED = 1 / 60;
-const SEED = 1337;
-
-function mulberry32(a) {
-  return () => {
-    a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
+const HINT_PRICE = 300;
+const GAME_URL = 'https://zin34.github.io/Blow-Down/';
 
 class Game {
   async init() {
@@ -35,18 +33,21 @@ class Game {
     this.cam = new OrbitCam(this.view.camera);
     this.fx = new FX(this.view.scene);
     this.sfx = new Sfx();
+    this.profile = Profile.load(LEVELS.length);
     this.ui = new UI(this);
-    this.progress = loadProgress(LEVELS.length);
+    this.menu = new Menu(this);
     this.markers = new THREE.Group();
     this.view.scene.add(this.markers);
     this.spotTex = ringTexture();
     this.charges = [];
     this.selected = null;
     this.lastDelay = 0;
+    this.chargeType = 'std';
     this.slowmo = false;
     this.debugOn = false;
     this.fails = 0;
     this.attempts = 0;
+    this.applyEquipment();
     this.input = new Input(this.canvas, {
       onTap: (x, y) => this.onTap(x, y),
       onOrbit: (dx, dy) => { if (this.state !== 'replay') this.cam.orbit(dx, dy); },
@@ -57,7 +58,7 @@ class Game {
     });
     addEventListener('resize', () => this.resize());
     this.resize();
-    this.loadLevel(0);
+    this.loadJob(campaignJob(Math.max(0, this.profile.unlockedCount() - 1)));
     this.openMenu();
     document.getElementById('loading').hidden = true;
     this.last = performance.now();
@@ -78,11 +79,20 @@ class Game {
 
   starText(k) { return starLabel(k, this.level); }
 
-  // ---- levels -----------------------------------------------------------
+  applyEquipment() {
+    const e = this.profile.equip;
+    this.fx.setPalette(e.fx);
+    this.ui.setDetonator(e.det);
+    this.ui.setCrew(e.crew === 'sparky' ? null : e.crew);
+  }
 
-  loadLevel(i, rig = null) {
-    this.levelIdx = i;
-    const L = this.level = LEVELS[i];
+  // ---- jobs -------------------------------------------------------------
+
+  loadJob(job, rig = null) {
+    this.job = job;
+    const def = { ...job.def };
+    if (this.profile.has('longfuse')) def.maxDelay = Math.max(def.maxDelay || 2, 5);
+    const L = this.level = def;
     this.view.clearLevel();
     this.clearMarkers();
     if (this.world) this.world.free();
@@ -94,10 +104,11 @@ class Game {
 
     const b = new Builder();
     L.build(b);
+    if (L.sandbox) for (const c of b.chunks) if (c.support) c.rig = true;
     this.view.setTheme(L.theme, Math.max(30, L.camera.dist * 0.75), L.setting);
     const protect = buildProps(b.props, { root: this.view.level, R, world: this.world });
     this.chunkView = new ChunkView(this.view.level, b.chunks, this.view.theme.night);
-    this.rng = mulberry32(SEED + i);
+    this.rng = mulberry32(L.seed);
     this.structure = new Structure(R, this.world, this.chunkView, b.chunks, {
       minSupport: L.minSupport, blastRadius: L.blastRadius, protect,
       rng: () => this.rng(), onEvent: (t, p, d) => this.onStructEvent(t, p, d),
@@ -115,35 +126,68 @@ class Game {
     this.selected = null;
     this.lastDelay = 0;
     this.makeSpots();
-    const preset = rig || (L.preset || []).map(tag => ({ id: this.structure.chunks.find(c => c.tag === tag).id, delay: 0 }));
-    for (const r of preset) this.placeCharge(this.structure.chunks[r.id], r.delay, true);
+    for (const r of rig || []) {
+      const c = this.structure.chunks[r.id];
+      if (c && c.rig && this.charges.length < L.maxCharges) this.placeCharge(c, r.delay, true, r.type || 'std');
+    }
     this.selected = null;
     this.state = 'rig';
     this.acc = 0;
   }
 
-  startLevel(i, keepRig = false) {
-    if (!keepRig || i !== this.levelIdx) { this.fails = 0; this.attempts = 0; }
-    this.loadLevel(i, keepRig ? this.lastRig : null);
-    this.ui.setLevel(this.level, i);
+  play(job, keepRig = false) {
+    if (!job.def) { this.ui.toast('That one isn\'t available yet'); return; }
+    const same = this.job && keepRig;
+    if (!same) { this.fails = 0; this.attempts = 0; }
+    this.loadJob(job, keepRig ? this.lastRig : null);
+    const types = chargeTypes(this.profile);
+    if (!types.some(t => t.id === this.chargeType)) this.chargeType = 'std';
+    this.menu.hide();
+    this.ui.setLevel(this.level, job.label, { expert: expertText(this.level.expert), types, type: this.chargeType });
     this.refreshCharges();
     this.ui.countdown(null);
     this.ui.replayBadge(false);
     if (keepRig) this.ui.hideBubble();
-    else this.ui.bubble(this.level.intro);
+    else this.ui.bubble(job.intro || this.level.intro);
   }
 
-  retry() { this.startLevel(this.levelIdx, true); }
-  next() { if (this.levelIdx < LEVELS.length - 1) this.startLevel(this.levelIdx + 1); }
+  retry() { this.play(this.job, true); }
 
-  openMenu() {
-    if (this.state !== 'rig' && this.state !== 'menu') this.loadLevel(this.levelIdx);
+  next() {
+    const j = this.job;
+    if (j.kind === 'campaign' && j.index < LEVELS.length - 1) return this.play(campaignJob(j.index + 1));
+    if (j.kind === 'remix') {
+      const keys = availableRemixes(j.index), k = keys.indexOf(j.remix);
+      if (k >= 0 && k < keys.length - 1) return this.play(remixJob(j.index, keys[k + 1]));
+      return this.openMenu('remix');
+    }
+    this.openMenu(j.kind === 'sandbox' ? 'sandbox' : 'jobs');
+  }
+
+  async startDaily() {
+    const day = dayNumber();
+    this.menu.busy(`Surveying today's site…`, 0);
+    try {
+      const def = await prepareDaily(day, (attempt, i, n) =>
+        this.menu.busy(attempt ? 'Finding a better site…' : `Surveying today's site…`, i / n));
+      this.menu.busy(null);
+      this.play(dailyJob(day, def));
+    } catch (err) {
+      console.error(err);
+      this.menu.busy(null);
+      this.ui.toast("Couldn't set up today's contract");
+    }
+  }
+
+  openMenu(tab) {
+    if (this.state !== 'rig' && this.state !== 'menu') this.loadJob(this.job);
     this.state = 'menu';
     this.cam.auto = 0.08;
     this.ui.countdown(null);
     this.ui.replayBadge(false);
     this.ui.hideBubble();
-    this.ui.showMenu(LEVELS, this.progress, unlockedCount(this.progress));
+    this.ui.hideHud();
+    this.menu.show(tab);
   }
 
   pause() {
@@ -157,6 +201,21 @@ class Game {
     if (this.state !== 'paused') return;
     this.state = this.pausedFrom;
     this.ui.showPause(false);
+  }
+
+  buy(item) {
+    if (item.slot && (item.price === 0 || this.profile.has(item.id))) {
+      this.profile.equip[item.slot] = item.value;
+      this.profile.save();
+      this.applyEquipment();
+      this.sfx.click();
+      return true;
+    }
+    if (!this.profile.buy(item)) { this.ui.toast('Not enough cash yet'); return false; }
+    if (item.slot) { this.profile.equip[item.slot] = item.value; this.profile.save(); this.applyEquipment(); }
+    this.sfx.ding(2);
+    this.ui.toast(`Bought: ${item.name}`);
+    return true;
   }
 
   drawZone(z) {
@@ -186,7 +245,7 @@ class Game {
     this.spotMat = new THREE.SpriteMaterial({ map: this.spotTex, depthTest: false, transparent: true, sizeAttenuation: false });
     const rig = this.structure.rigChunks();
     // crowded buildings get smaller markers so they don't pile on top of each other
-    this.markerScale = rig.length > 12 ? 0.7 : 1;
+    this.markerScale = rig.length > 40 ? 0.55 : rig.length > 12 ? 0.7 : 1;
     for (const c of rig) {
       const s = new THREE.Sprite(this.spotMat);
       s.renderOrder = 10;
@@ -203,13 +262,13 @@ class Game {
     this.markers.clear();
   }
 
-  placeCharge(c, delay = this.lastDelay, silent = false) {
+  placeCharge(c, delay = this.lastDelay, silent = false, type = this.chargeType) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest: false, transparent: true, sizeAttenuation: false }));
     sprite.renderOrder = 11;
     sprite.scale.setScalar(0.06);
     sprite.position.copy(this.structure.worldPos(c));
     this.markers.add(sprite);
-    const ch = { chunk: c, delay: this.clampDelay(delay), n: 0, sprite };
+    const ch = { chunk: c, delay: this.clampDelay(delay), n: 0, sprite, type };
     this.charges.push(ch);
     this.spots.get(c).visible = false;
     this.selected = ch;
@@ -228,14 +287,21 @@ class Game {
   }
 
   clearCharges() {
-    if (this.level.locked || this.state !== 'rig') return;
+    if (this.state !== 'rig') return;
     for (const ch of this.charges.slice()) this.removeCharge(ch);
     this.lastDelay = 0;
   }
 
+  setChargeType(id) {
+    this.chargeType = id;
+    if (this.selected && this.state === 'rig') { this.selected.type = id; }
+    this.refreshCharges();
+    this.ui.setChargeType(id);
+  }
+
   select(ch) {
     this.selected = ch;
-    if (ch) this.lastDelay = ch.delay;
+    if (ch) { this.lastDelay = ch.delay; this.chargeType = ch.type; this.ui.setChargeType(ch.type); }
     this.refreshCharges();
   }
 
@@ -245,7 +311,7 @@ class Game {
   }
 
   setDelay(ch, d) {
-    if (this.level.locked || this.state !== 'rig') return;
+    if (this.state !== 'rig') return;
     const v = this.clampDelay(d);
     if (v === ch.delay) return;
     ch.delay = v;
@@ -256,20 +322,32 @@ class Game {
   refreshCharges() {
     this.charges.forEach((ch, i) => { ch.n = i + 1; });
     for (const ch of this.charges) {
-      ch.sprite.material.map = chargeTex(ch.n, ch === this.selected);
+      ch.sprite.material.map = chargeTex(ch.n, ch === this.selected, ch.type);
       ch.sprite.material.needsUpdate = true;
     }
     this.ui.setCharges(this.charges, this.selected, this.level);
   }
 
+  // Sparky rigs the known solution for you, for a fee.
+  showMe() {
+    const L = this.level;
+    const rig = L.solutionRig || (L.solution ? rigFromFilters(L, L.solution) : null);
+    if (!rig) { this.ui.toast("Sparky's stumped on this one"); return; }
+    if (this.profile.cash < HINT_PRICE) { this.ui.toast(`Sparky charges $${HINT_PRICE}. Earn a bit more first.`); return; }
+    this.profile.cash -= HINT_PRICE;
+    this.profile.save();
+    this.lastRig = rig;
+    this.play(this.job, true);
+    this.ui.bubble('Here, like this. Now hit the button.');
+  }
+
   onTap(x, y) {
     this.sfx.unlock();
-    if (this.state === 'replay') { this.endReplay(); return; }
+    if (this.state === 'replay') { if (!this.recording) this.endReplay(); return; }
     if (this.state !== 'rig') return;
     this.ui.hideBubble();
     const hit = this.pick(x, y);
     if (!hit) { if (this.selected) this.select(null); return; }
-    if (this.level.locked) { this.ui.toast('Already rigged: just hit DETONATE'); return; }
     const existing = this.charges.find(ch => ch.chunk === hit);
     if (existing) { this.removeCharge(existing); this.sfx.click(); return; }
     if (this.charges.length >= this.level.maxCharges) { this.ui.toast(`Out of charges (${this.level.maxCharges} max)`); return; }
@@ -294,36 +372,38 @@ class Game {
     this.sfx.unlock();
     const s = this.state;
     if (code === 'F1') { this.debugOn = !this.debugOn; if (!this.debugOn) this.ui.debug(null); return; }
-    if (code === 'BracketLeft') return this.startLevel((this.levelIdx + LEVELS.length - 1) % LEVELS.length);
-    if (code === 'BracketRight') return this.startLevel((this.levelIdx + 1) % LEVELS.length);
     if (code === 'KeyT') { this.slowmo = !this.slowmo; this.ui.toast(this.slowmo ? 'Slow-mo on' : 'Slow-mo off', 900); return; }
+    if ((code === 'BracketLeft' || code === 'BracketRight') && s !== 'replay') {
+      const i = this.job?.kind === 'campaign' ? this.job.index : 0, n = LEVELS.length;
+      return this.play(campaignJob((i + (code === 'BracketLeft' ? n - 1 : 1)) % n));
+    }
     if (s === 'menu') {
-      if (code === 'Space' || code === 'Enter') this.startLevel(unlockedCount(this.progress) - 1);
+      if (code === 'Space' || code === 'Enter') this.play(campaignJob(this.profile.unlockedCount() - 1));
       return;
     }
     if (code === 'Escape') {
       if (s === 'paused') this.resume();
-      else if (s === 'replay') this.endReplay();
+      else if (s === 'replay') { if (!this.recording) this.endReplay(); }
       else this.pause();
       return;
     }
     if (s === 'paused') return;
-    if (code === 'KeyR') return this.retry();
+    if (code === 'KeyR' && s !== 'replay') return this.retry();
     if (s === 'rig') {
       const sel = this.selected;
+      const types = chargeTypes(this.profile);
       if (code === 'Space' || code === 'Enter') this.detonate();
+      else if (/^Digit[1-3]$/.test(code) && types[+code.slice(5) - 1]) this.setChargeType(types[+code.slice(5) - 1].id);
       else if (code === 'Tab' && this.charges.length) {
         const i = sel ? this.charges.indexOf(sel) : -1;
         this.select(this.charges[(i + 1) % this.charges.length]);
-      } else if (sel && !this.level.locked && ['Delete', 'Backspace', 'KeyX'].includes(code)) this.removeCharge(sel);
+      } else if (sel && ['Delete', 'Backspace', 'KeyX'].includes(code)) this.removeCharge(sel);
       else if (sel && code === 'ArrowLeft') this.setDelay(sel, sel.delay - 0.05);
       else if (sel && code === 'ArrowRight') this.setDelay(sel, sel.delay + 0.05);
     } else if (s === 'result') {
       if (code === 'KeyV') this.replay();
-      else if (code === 'Space' || code === 'Enter') {
-        if (this.result.down && this.levelIdx < LEVELS.length - 1) this.next(); else this.retry();
-      }
-    } else if (s === 'replay') {
+      else if (code === 'Space' || code === 'Enter') { if (this.result.passed) this.next(); else this.retry(); }
+    } else if (s === 'replay' && !this.recording) {
       if (['Space', 'Enter', 'KeyV'].includes(code)) this.endReplay();
     }
   }
@@ -332,7 +412,7 @@ class Game {
 
   detonate() {
     if (this.state !== 'rig' || !this.charges.length) return;
-    this.lastRig = this.charges.map(ch => ({ id: ch.chunk.id, delay: ch.delay }));
+    this.lastRig = this.charges.map(ch => ({ id: ch.chunk.id, delay: ch.delay, type: ch.type }));
     this.ui.hideBubble();
     this.selected = null;
     this.refreshCharges();
@@ -352,7 +432,8 @@ class Game {
     this.blastT = 0;
     this.acc = 0;
     this.settleT = 0;
-    this.rng = mulberry32(SEED + this.levelIdx);   // same rig, same result
+    this.failAt = null;
+    this.rng = mulberry32(this.level.seed);   // same rig, same result
     this.pending = this.charges.slice().sort((a, b) => a.delay - b.delay);
     this.lastFire = this.pending[this.pending.length - 1].delay;
     this.recorder.start();
@@ -364,12 +445,14 @@ class Game {
     while (this.pending.length && this.pending[0].delay <= this.blastT + 1e-6) now.push(this.pending.shift());
     if (now.length) {
       for (const ch of now) ch.sprite.visible = false;
-      this.structure.blast(now.map(ch => ch.chunk));
+      this.structure.blast(now.map(ch => ({ chunk: ch.chunk, type: ch.type })));
       this.sfx.boom();
     }
     this.world.step();
     this.structure.step(FIXED);
     this.recorder.tick(FIXED);
+    // hit something you had to protect: that's the job over, just long enough to see it
+    if (this.failAt !== null && this.blastT >= this.failAt) return this.finish();
     if (this.pending.length) return;
     const since = this.blastT - this.lastFire;
     if (!this.structure.anyDynamic() && since > 2) return this.finish();
@@ -385,7 +468,10 @@ class Game {
     else if (type === 'glass') this.sfx.glass();
     else if (type === 'damage') {
       markHit(this.structure.protect[d.index]);
-      this.ui.toast(`💥 ${d.name} hit!`);
+      if (this.state === 'blast' && !this.level.sandbox) {
+        this.ui.toast(`💥 You hit the ${d.name}!`, 2500);
+        if (this.failAt === null) this.failAt = this.blastT + 0.9;
+      }
     }
   }
 
@@ -393,31 +479,34 @@ class Game {
     this.state = 'result';
     this.recorder.close();
     for (const ch of this.charges) ch.sprite.visible = false;
-    const L = this.level;
+    const L = this.level, job = this.job;
     const res = this.result = evaluate(L, this.structure, this.fx, this.charges.length);
     this.attempts++;
-    if (res.down) {
-      this.fails = 0;
-      if (res.count > (this.progress.best[this.levelIdx] || 0)) {
-        this.progress.best[this.levelIdx] = res.count;
-        saveProgress(this.progress);
-      }
-      this.sfx.cheer();
-    } else {
-      this.fails++;
-      this.sfx.fail();
-    }
-    const hint = (!res.down && this.fails >= 2) || (res.count < 3 && this.attempts >= 3) ? L.hint : null;
-    this.resultOpts = { hasNext: this.levelIdx < LEVELS.length - 1, hint };
+    const hadExpert = job.kind === 'campaign' && this.profile.expert[job.index];
+    const award = job.kind === 'sandbox' ? { cash: 0, notes: [] } : this.profile.award(job, res);
+    if (res.passed) { this.fails = 0; this.sfx.cheer(); } else { this.fails++; this.sfx.fail(); }
+    const hint = (!res.passed && this.fails >= 2) || (res.count < 3 && this.attempts >= 3) ? L.hint : null;
+    const canShowMe = !!(L.solutionRig || L.solution) && hint && !L.sandbox;
+    let hasNext = false, nextLabel = 'Next job ▶';
+    if (job.kind === 'campaign') hasNext = res.passed && job.index < LEVELS.length - 1;
+    else if (job.kind === 'remix') { hasNext = res.passed; nextLabel = 'Next remix ▶'; }
+    this.resultOpts = {
+      kind: job.kind, hasNext, nextLabel, hint, canShowMe, hintPrice: HINT_PRICE,
+      cash: award.cash, notes: award.notes, rankUp: award.rankUp, balance: this.profile.cash,
+      expert: L.expert ? { text: expertText(L.expert), got: res.expert, before: hadExpert } : null,
+      canShare: job.kind === 'daily' && res.passed, canClip: clipSupported(),
+      streak: job.kind === 'daily' ? this.profile.currentStreak(job.day) : 0,
+    };
     this.ui.showResult(res, L, this.resultOpts);
   }
 
-  replay() {
+  replay(onEnd = null) {
     if (this.state !== 'result' || this.recorder.frames.length < 2) return;
     this.state = 'replay';
+    this.replayEnd = onEnd;
     this.ui.hideResult();
     this.ui.setMode('replay');
-    this.ui.replayBadge(true);
+    this.ui.replayBadge(true, !!onEnd);
     this.player = new Player(this.recorder, this.chunkView, this.fx);
     this.cam.auto = 0.12;
   }
@@ -429,7 +518,39 @@ class Game {
     this.cam.auto = 0;
     this.state = 'result';
     this.ui.replayBadge(false);
-    this.ui.showResult(this.result, this.level, this.resultOpts);
+    this.ui.showResult(this.result, this.level, this.resultOpts, true);
+    const cb = this.replayEnd;
+    this.replayEnd = null;
+    cb?.();
+  }
+
+  async saveClip() {
+    if (this.state !== 'result' || this.recording) return;
+    this.recording = true;
+    try {
+      const blob = await recordClip(this.canvas, () => new Promise(res => this.replay(res)));
+      const how = await shareClip(blob, `blowdown-${(this.level.name || 'job').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+      if (how === 'saved') this.ui.toast('Clip saved to your downloads');
+    } catch (err) {
+      console.error(err);
+      this.ui.toast("Couldn't record a clip on this device");
+    } finally {
+      this.recording = false;
+    }
+  }
+
+  async shareDaily() {
+    const job = this.job, res = this.result;
+    if (job.kind !== 'daily') return;
+    const r = this.profile.daily.results[job.day] || {};
+    const text = [
+      `Blowdown Daily #${job.day} ${'⭐'.repeat(res.count)}${'☆'.repeat(3 - res.count)}`,
+      `💣${res.used}/${this.level.par} 🎯${Math.round(res.zonePct * 100)}% ${res.passed ? '🏠✔' : '💥'}${r.tries > 1 ? ` · ${r.tries} tries` : ''}`,
+      `🔥 Streak ${this.profile.currentStreak(job.day)}`,
+      GAME_URL,
+    ].join('\n');
+    const how = await shareText(text);
+    if (how === 'copied') this.ui.toast('Result copied: paste it anywhere');
   }
 
   // ---- frame --------------------------------------------------------------
@@ -479,31 +600,6 @@ class Game {
     this.view.render(dt);
   }
 
-  // Dev helper for tuning: run a whole attempt instantly from the console.
-  //   game.sim(4, [[c => c.gj === 0, 0], [c => c.gj === 1, 0.4]])
-  sim(i, rig) {
-    this.startLevel(i);
-    if (rig) {
-      this.clearCharges();
-      for (const [sel, delay] of rig) {
-        const list = typeof sel === 'function' ? this.structure.rigChunks().filter(sel) : [this.structure.chunks[sel]];
-        for (const c of list) if (this.charges.length < this.level.maxCharges) this.placeCharge(c, delay, true);
-      }
-    }
-    if (!this.charges.length) throw new Error(`sim: that rig matched no charge spots on level ${i + 1}`);
-    this.detonate();
-    this.startBlast();
-    let n = 0;
-    while (this.state === 'blast' && n < 60 * 20) { this.stepBlast(); this.fx.update(FIXED); n++; }
-    this.structure.sync();
-    const r = this.result;
-    return { secs: +(n / 60).toFixed(2), charges: this.charges.length, down: r.down, maxTop: +r.maxTop.toFixed(2),
-      standing: +r.standing.toFixed(2),
-      zone: +r.zonePct.toFixed(2), damaged: r.damaged, dust: r.crowdDust,
-      touched: this.structure.protect.map(p => `${p.name} ${((p.mass || 0) / this.structure.totalMass * 100).toFixed(1)}%`).join(', '),
-      stars: r.stars.map(s => s.key + (s.got ? ' ✔' : ' ✘')).join(', '), ...this.structure.stats() };
-  }
-
   updateMarkers(now) {
     const k = this.markerScale;
     if (this.state === 'rig') {
@@ -514,7 +610,7 @@ class Game {
       if (!ch.sprite.visible) continue;
       if (ch.chunk.dead) { ch.sprite.visible = false; continue; }
       if (this.state === 'blast') this.structure.worldPos(ch.chunk, null, ch.sprite.position);
-      ch.sprite.scale.setScalar((ch === this.selected ? 0.075 : 0.06) * k);
+      ch.sprite.scale.setScalar((ch === this.selected ? 0.075 : 0.06) * Math.max(k, 0.7));
     }
   }
 }
@@ -532,13 +628,14 @@ function ringTexture() {
   });
 }
 
+const CHARGE_COLORS = { std: '#e23b2e', cutter: '#2f7de0', heavy: '#2a2a2a' };
 const chargeCache = new Map();
-function chargeTex(n, sel) {
-  const key = n + (sel ? 's' : '');
+function chargeTex(n, sel, type = 'std') {
+  const key = `${n}|${sel}|${type}`;
   if (!chargeCache.has(key)) chargeCache.set(key, spriteTexture((g, w) => {
-    g.fillStyle = sel ? '#ffffff' : '#1a1a1a';
+    g.fillStyle = sel ? '#ffffff' : type === 'heavy' ? '#f5c518' : '#1a1a1a';
     g.beginPath(); g.arc(w / 2, w / 2, w * 0.47, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#e23b2e';
+    g.fillStyle = CHARGE_COLORS[type];
     g.beginPath(); g.arc(w / 2, w / 2, w * 0.38, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#fff';
     g.font = `900 ${Math.round(w * 0.4)}px "Arial Black", Arial, sans-serif`;

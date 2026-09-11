@@ -2,6 +2,7 @@
 // zone: [x0, z0, x1, z1] target area on the ground.
 
 import { CHAPTER2 } from './levels2.js';
+import { CHAPTER3 } from './levels3.js';
 
 const ADS = [0xf2c14e, 0xd94a4a, 0xf2c14e, 0x3a7bd5];
 
@@ -31,10 +32,10 @@ const CHAPTER1 = [
 
   {
     name: 'Water Tower', theme: 'day',
-    intro: "Tap a charge again to take it off. You won't always need to blow every leg.",
+    intro: "Tap a charge again to take it off. You won't always need to blow every leg. Land it in the green zone.",
     hint: "You don't need to blow every leg. Take out the legs on one side and it'll tip that way.",
-    maxCharges: 4, par: 2, stars: ['down', 'budget', 'clean'],
-    zone: null, downHeight: 6.6,
+    maxCharges: 4, par: 2, stars: ['down', 'zone', 'budget'],
+    zone: [-4, -20, 20, 4], zoneReq: 0.55, downHeight: 6.6,
     camera: { target: [0, 6, 0], dist: 34, yaw: 0.5, pitch: 0.3 },
     build(b) {
       for (const [x, z] of [[-2.5, -2.5], [2.5, -2.5], [-2.5, 2.5], [2.5, 2.5]]) {
@@ -59,7 +60,7 @@ const CHAPTER1 = [
     name: 'Farm Silo', theme: 'day',
     intro: 'See the green zone? A building falls toward the side you cut. Keep it off the barn.',
     hint: 'Put both charges on the side facing the zone, right next to each other.',
-    maxCharges: 3, par: 2, blastRadius: 2.8, minSupport: 0.3, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 3, par: 2, blastRadius: 2.8, minSupport: 0.3, stars: ['down', 'zone', 'budget'],
     zone: [3, -5.5, 23, 5.5], zoneReq: 0.55, downHeight: 6.6,
     camera: { target: [3, 6, 0], dist: 40, yaw: 0.15, pitch: 0.3 },
     build(b) {
@@ -77,7 +78,7 @@ const CHAPTER1 = [
     name: 'Highway Billboard', theme: 'day',
     intro: 'Look around before you rig anything. Drag to spin the camera.',
     hint: "Charges on the side facing the diner will drop it on the diner. Rig the far side so it falls into the field.",
-    maxCharges: 3, par: 2, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 3, par: 2, stars: ['down', 'zone', 'budget'],
     zone: [-8, 2, 8, 20], zoneReq: 0.55, downHeight: 4,
     camera: { target: [0, 6, -3], dist: 38, yaw: 0.25, pitch: 0.3 },
     build(b) {
@@ -100,7 +101,7 @@ const CHAPTER1 = [
     name: 'Roadside Motel', theme: 'day',
     intro: "New tool: the timeline. Drag a charge's dot to choose when it goes off. Front row first and it folds forward into the lot.",
     hint: 'Front row (the side facing the lot) at 0.0s. If you rig the back row too, give it about 0.8s so the front has time to fold.',
-    maxCharges: 12, par: 8, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 12, par: 8, stars: ['down', 'zone', 'budget'],
     zone: [-11, -13, 11, 0.5], zoneReq: 0.6, downHeight: 3.6,
     camera: { target: [0, 3, -3], dist: 36, yaw: 0.5, pitch: 0.38 },
     build(b) {
@@ -119,7 +120,7 @@ const CHAPTER1 = [
     name: 'Corner Bank', setting: 'city', theme: 'day',
     intro: 'No room to tip this one. Blow the middle columns first and it caves in on itself.',
     hint: 'The two middle columns at 0.0s, then the outer ones about 0.3s later. You only need 8 charges.',
-    maxCharges: 12, par: 8, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 12, par: 8, stars: ['down', 'zone', 'budget'],
     zone: [-8.3, -8, 8.3, 6.3], zoneReq: 0.7, downHeight: 6,
     camera: { target: [0, 5, 0], dist: 40, yaw: 0.35, pitch: 0.35 },
     build(b) {
@@ -139,7 +140,7 @@ const CHAPTER1 = [
     name: 'Brick Chimney', theme: 'dusk',
     intro: 'Old brick crumbles. Too much bang and it goes wherever it likes. Drop it down the gap.',
     hint: 'Two charges, side by side, on the side facing up the gap. It falls like a tree.',
-    maxCharges: 4, par: 2, minSupport: 0.3, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 4, par: 2, minSupport: 0.3, stars: ['down', 'zone', 'budget'],
     zone: [-4.8, 2.5, 4.8, 32], zoneReq: 0.5, downHeight: 6.5,
     camera: { target: [0, 8, 8], dist: 52, yaw: 0.3, pitch: 0.42 },
     build(b) {
@@ -159,7 +160,7 @@ const CHAPTER1 = [
     name: 'Parking Garage', setting: 'city', theme: 'day',
     intro: "The shops downstairs are still open, so nothing goes on the ground floor. Rig the floors above. And mind that news van.",
     hint: 'Rig every column on floor 1 and fire them all together. It drops straight onto the ground floor. If one side goes first, it lurches onto the van.',
-    maxCharges: 8, par: 6, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 8, par: 6, stars: ['down', 'zone', 'budget'],
     zone: [-8.6, -5.4, 8.6, 5.6], zoneReq: 0.7, downHeight: 8,
     camera: { target: [0, 6, 0], dist: 38, yaw: 0.6, pitch: 0.35 },
     build(b) {
@@ -186,7 +187,7 @@ const CHAPTER1 = [
     name: 'Grain Elevator', theme: 'night',
     intro: "Night job with a crowd. The wind's blowing toward them, so keep the dust off.",
     hint: 'One charge on the side of each silo facing away from the crowd. It falls away from them, and the dust lands too far off to reach them.',
-    maxCharges: 6, par: 4, blastRadius: 2.8, minSupport: 0.3, stars: ['zone', 'clean', 'air'],
+    maxCharges: 6, par: 4, blastRadius: 2.8, minSupport: 0.3, stars: ['down', 'zone', 'air'],
     zone: [-13, 2, 13, 24], zoneReq: 0.55, downHeight: 7.5, wind: [0, -3.5],
     camera: { target: [0, 7, -2], dist: 50, yaw: 0.45, pitch: 0.3 },
     build(b) {
@@ -211,7 +212,7 @@ const CHAPTER1 = [
     name: 'The Grand Hotel', setting: 'city', theme: 'dusk',
     intro: "Live TV. A hundred-year-old church on one side, parked cars on the other. Don't embarrass me.",
     hint: 'Middle columns first and the rest about 0.3s later, and it caves in. Or fire the street side first so it leans away from the church.',
-    maxCharges: 24, par: 16, maxDelay: 3, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 24, par: 16, maxDelay: 3, stars: ['down', 'zone', 'budget'],
     zone: [-10, -8.5, 12, 8.5], zoneReq: 0.7, downHeight: 10, tv: true,
     camera: { target: [0, 12, 0], dist: 72, yaw: 0.35, pitch: 0.26 },
     build(b) {
@@ -230,9 +231,10 @@ const CHAPTER1 = [
   },
 ];
 
-export const LEVELS = [...CHAPTER1, ...CHAPTER2];
+export const LEVELS = [...CHAPTER1, ...CHAPTER2, ...CHAPTER3];
 
 export const CHAPTERS = [
   { from: 0, name: 'Chapter 1 · Local jobs' },
   { from: CHAPTER1.length, name: 'Chapter 2 · Big contracts' },
+  { from: CHAPTER1.length + CHAPTER2.length, name: 'Chapter 3 · World tour' },
 ];

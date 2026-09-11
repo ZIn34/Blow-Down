@@ -33,6 +33,14 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+const PALETTES = {
+  classic: { fire: ['255,240,200', '255,170,60', '220,70,20', '120,30,10'], spark: [0xffc860], light: 0xffa050 },
+  blue:    { fire: ['225,242,255', '90,170,255', '40,80,220', '10,20,90'], spark: [0x9fd8ff, 0xe0f4ff], light: 0x6aa8ff },
+  toxic:   { fire: ['235,255,205', '150,255,80', '40,180,40', '10,60,10'], spark: [0xb6ff6a], light: 0x7aff5a },
+  party:   { fire: ['255,232,250', '255,90,200', '140,60,255', '40,20,120'], spark: [0xff4fa3, 0x4fd2ff, 0xffe14f, 0x7dff6a, 0xb56bff], light: 0xff6ad5 },
+  gold:    { fire: ['255,250,222', '255,215,90', '220,150,20', '110,70,0'], spark: [0xffe27a, 0xfff2b0], light: 0xffd060 },
+};
+
 let seed = 11;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
@@ -101,8 +109,6 @@ export class FX {
     scene.add(this.sparkMesh);
 
     // flash, fireball, shockwave
-    this.flashTex = radial([[0, 'rgba(255,255,240,1)'], [0.3, 'rgba(255,230,160,0.9)'], [1, 'rgba(255,160,60,0)']]);
-    this.fireTex = radial([[0, 'rgba(255,240,200,1)'], [0.25, 'rgba(255,170,60,0.95)'], [0.6, 'rgba(220,70,20,0.55)'], [1, 'rgba(120,30,10,0)']]);
     this.sprites = [];
     this.ringGeo = new THREE.RingGeometry(0.82, 1, 48);
     this.ringGeo.rotateX(-Math.PI / 2);
@@ -113,7 +119,18 @@ export class FX {
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.s = new THREE.Vector3();
     this.c = new THREE.Color(); this.v = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
     this.shake = 0;
+    this.setPalette('classic');
     this.reset({});
+  }
+
+  // Explosion colours (bought in the shop).
+  setPalette(name) {
+    const p = this.palette = PALETTES[name] || PALETTES.classic;
+    this.flashTex?.dispose();
+    this.fireTex?.dispose();
+    this.flashTex = radial([[0, `rgba(${p.fire[0]},1)`], [0.3, `rgba(${p.fire[1]},0.9)`], [1, `rgba(${p.fire[2]},0)`]]);
+    this.fireTex = radial([[0, `rgba(${p.fire[0]},1)`], [0.25, `rgba(${p.fire[1]},0.95)`], [0.6, `rgba(${p.fire[2]},0.55)`], [1, `rgba(${p.fire[3]},0)`]]);
+    this.light.color.setHex(p.light);
   }
 
   setViewport(heightPx, fovDeg) {
@@ -197,7 +214,7 @@ export class FX {
       axis: new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize(), ang: 0, spin: 5 + rnd() * 10 });
   }
 
-  spark(p, v, color = 0xffc860, life = 0.5 + rnd() * 0.5) {
+  spark(p, v, color = this.palette.spark[Math.floor(rnd() * this.palette.spark.length)], life = 0.5 + rnd() * 0.5) {
     if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
     this.sparks.push({ p: p.clone(), v, color, life, age: 0 });
   }
@@ -291,7 +308,7 @@ export class FX {
       const s = S[i], t = s.age / s.life, len = Math.min(1.6, s.v.length() * 0.06) + 0.1;
       this.q.setFromUnitVectors(this.up, this.v.copy(s.v).normalize());
       this.sparkMesh.setMatrixAt(i, this.m.compose(s.p, this.q, this.s.set(0.07, len, 0.07)));
-      this.sparkMesh.setColorAt(i, this.c.setHex(s.color).lerp(new THREE.Color(0xff5a10), t).multiplyScalar(2.2 * (1 - t) + 0.3));
+      this.sparkMesh.setColorAt(i, this.c.setHex(s.color).multiplyScalar(2.2 * (1 - t) + 0.3));
     }
     this.sparkMesh.count = S.length;
     this.sparkMesh.instanceMatrix.needsUpdate = true;

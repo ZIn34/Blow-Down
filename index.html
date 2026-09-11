@@ -24,53 +24,74 @@
       </div>
       <div id="goals"></div>
       <div id="wind" hidden><span id="wind-arrow">↑</span><small>WIND</small></div>
-      <div id="bubble" hidden><div class="avatar">👷</div><div><b>SPARKY</b><div id="bubble-text"></div></div></div>
+      <div id="bubble" hidden><div class="avatar"></div><div><b>SPARKY</b><div id="bubble-text"></div></div></div>
       <div id="toast" hidden></div>
       <div class="bottom">
-        <div id="timeline">
-          <div class="tl-head"><span>TIMELINE</span><span id="tl-sel"></span><button id="btn-clear" class="link" hidden>Clear</button></div>
-          <div id="tl-track"><div id="tl-ticks"></div></div>
+        <div id="ctypes" hidden></div>
+        <div class="row">
+          <div id="timeline">
+            <div class="tl-head"><span>TIMELINE</span><span id="tl-sel"></span><button id="btn-clear" class="link" hidden>Clear</button></div>
+            <div id="tl-track"><div id="tl-ticks"></div></div>
+          </div>
+          <button id="btn-detonate" disabled data-skin="red"><span>DETONATE</span><small>Space</small></button>
         </div>
-        <button id="btn-detonate" disabled><span>DETONATE</span><small>Space</small></button>
       </div>
     </div>
 
     <div id="countdown" hidden></div>
-    <div id="replay-badge" hidden><span>▶ REPLAY · SLOW-MO</span><button id="btn-skip">Skip</button></div>
+    <div id="replay-badge" hidden><span id="replay-label">▶ REPLAY · SLOW-MO</span><button id="btn-skip">Skip</button></div>
 
     <div id="result" class="panel" hidden>
       <div id="res-title"></div>
       <div id="res-stars"></div>
       <ul id="res-list"></ul>
-      <div id="res-hint" hidden><div class="avatar">👷</div><div id="res-hint-text"></div></div>
+      <div id="res-cash" hidden></div>
+      <div id="res-streak" hidden></div>
+      <div id="res-hint" hidden><div class="avatar"></div><div><div id="res-hint-text"></div><button id="btn-showme" class="link" hidden></button></div></div>
       <div class="buttons">
         <button id="btn-replay" class="secondary">▶ Replay <small>V</small></button>
         <button id="btn-retry" class="secondary">↻ Retry <small>R</small></button>
         <button id="btn-next" class="primary">Next job ▶</button>
       </div>
-      <button id="btn-levels" class="link">All jobs</button>
+      <div class="buttons extra">
+        <button id="btn-share" class="secondary" hidden>📤 Share result</button>
+        <button id="btn-clip" class="secondary" hidden>🎬 Save clip</button>
+      </div>
+      <button id="btn-levels" class="link">Menu</button>
     </div>
 
     <div id="pause" class="panel" hidden>
       <div class="ptitle">PAUSED</div>
       <button id="btn-resume" class="primary">Resume</button>
       <button id="btn-p-retry" class="secondary">Retry job</button>
-      <button id="btn-p-levels" class="secondary">All jobs</button>
+      <button id="btn-p-levels" class="secondary">Menu</button>
       <div class="keys">
         <b>Mouse & keyboard</b>
         Click a glowing spot: place or remove a charge<br>
         Drag or right-drag: rotate · Middle or Shift-drag: move · Wheel: zoom<br>
         A/D rotate · W/S zoom · Space detonate · R retry · V replay<br>
-        Tab select charge · ←/→ change its delay · Del remove it<br>
+        Tab select charge · ←/→ change its delay · Del remove it · 1-3 charge type<br>
         <b>Testing</b> F1 stats · [ ] previous/next job · T slow-mo
       </div>
     </div>
 
     <div id="menu" class="screen" hidden>
       <div class="logo">BLOW<span>DOWN</span></div>
-      <div class="tag">Demolition, done right.</div>
-      <div id="menu-stars"></div>
-      <div id="level-grid"></div>
+      <div id="menu-rank"></div>
+      <button id="daily-card"></button>
+      <div id="menu-tabs">
+        <button data-tab="jobs">Jobs</button>
+        <button data-tab="remix">Remix</button>
+        <button data-tab="sandbox">Sandbox</button>
+        <button data-tab="shop">Shop</button>
+      </div>
+      <div id="menu-body"></div>
+    </div>
+
+    <div id="busy" class="screen" hidden>
+      <div class="logo">BLOW<span>DOWN</span></div>
+      <div id="busy-text"></div>
+      <div class="bar"><i id="busy-bar"></i></div>
     </div>
 
     <div id="loading" class="screen"><div class="logo">BLOW<span>DOWN</span></div><div class="tag">Loading…</div></div>

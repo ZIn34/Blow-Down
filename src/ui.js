@@ -1,9 +1,10 @@
-// DOM overlay: HUD, timeline, results, menus. Uses Pointer Events throughout so
-// mouse and touch go through the same code.
+// In-game DOM overlay: HUD, timeline, results, pause. (The main menu is menu.js.)
+// Uses Pointer Events throughout so mouse and touch go through the same code.
 import { STAR_ICON, zonesOf } from './scoring.js';
-import { CHAPTERS } from './levels.js';
+import { SPARKY_SVG } from './avatar.js';
 
 const $ = id => document.getElementById(id);
+const money = n => '$' + Math.round(n).toLocaleString('en-US');
 
 export class UI {
   constructor(game) {
@@ -25,6 +26,9 @@ export class UI {
     on('btn-levels', () => game.openMenu());
     on('btn-skip', () => game.endReplay());
     on('btn-clear', () => game.clearCharges());
+    on('btn-clip', () => game.saveClip());
+    on('btn-share', () => game.shareDaily());
+    on('btn-showme', () => game.showMe());
     $('bubble').addEventListener('click', () => this.hideBubble());
 
     // tapping the empty track moves the selected charge there
@@ -36,33 +40,21 @@ export class UI {
     this.track.addEventListener('pointermove', e => this.dragTo(e));
     this.track.addEventListener('pointerup', () => { this.drag = null; });
     this.track.addEventListener('pointercancel', () => { this.drag = null; });
+    this.setCrew(null);
   }
 
-  // ---- menu -------------------------------------------------------------
-
-  showMenu(levels, progress, unlocked) {
-    const grid = $('level-grid');
-    grid.innerHTML = '';
-    levels.forEach((L, i) => {
-      const ch = CHAPTERS.find(c => c.from === i);
-      if (ch) {
-        const h = document.createElement('div');
-        h.className = 'chapter';
-        h.textContent = ch.name;
-        grid.appendChild(h);
-      }
-      const b = document.createElement('button');
-      b.className = 'lvl';
-      b.disabled = i >= unlocked;
-      const best = progress.best[i] || 0;
-      b.innerHTML = `<span class="n">${i + 1}</span><span class="nm">${L.name}</span>
-        <span class="st">${'★'.repeat(best)}<i>${'★'.repeat(3 - best)}</i></span>`;
-      b.addEventListener('click', () => { this.g.sfx.unlock(); this.g.startLevel(i); });
-      grid.appendChild(b);
+  // The foreman who gives hints: Sparky's portrait, or a mascot bought in the shop.
+  setCrew(emoji) {
+    // each copy gets its own gradient ids; a hidden copy's ids would otherwise blank the visible one
+    [...document.querySelectorAll('.avatar')].forEach((a, i) => {
+      a.innerHTML = emoji ? `<span>${emoji}</span>` : SPARKY_SVG.replace(/\bsp(Bg|Hat|Skin|Clip)\b/g, `sp${i}$1`);
+      a.classList.toggle('portrait', !emoji);
     });
-    const total = progress.best.reduce((a, b) => a + b, 0);
-    $('menu-stars').textContent = `★ ${total} / ${levels.length * 3}`;
-    $('menu').hidden = false;
+  }
+
+  setDetonator(skin) { $('btn-detonate').dataset.skin = skin; }
+
+  hideHud() {
     $('hud').hidden = true;
     $('result').hidden = true;
     $('pause').hidden = true;
@@ -70,36 +62,48 @@ export class UI {
 
   // ---- HUD --------------------------------------------------------------
 
-  setLevel(L, i) {
-    $('menu').hidden = true;
+  setLevel(L, label, { expert = null, types = [], type = 'std' } = {}) {
     $('result').hidden = true;
     $('pause').hidden = true;
     $('hud').hidden = false;
-    $('lvl-num').textContent = `JOB ${i + 1}`;
+    $('lvl-num').textContent = label;
     $('lvl-name').textContent = L.name;
-    $('goals').innerHTML = L.stars.map(k =>
-      `<div class="goal" data-key="${k}"><b>${STAR_ICON[k]}</b>${this.g.starText(k)}</div>`).join('');
+    $('goals').innerHTML = (L.stars || []).map(k =>
+      `<div class="goal"><b>${STAR_ICON[k]}</b>${this.g.starText(k)}</div>`).join('') +
+      (expert ? `<div class="goal expert"><b>◆</b>Expert: ${expert}</div>` : '') +
+      (L.sandbox ? '<div class="goal"><b>💥</b>Sandbox: no score, no limits</div>' : '');
     this.max = L.maxDelay || 2;
     const ticks = $('tl-ticks');
     ticks.innerHTML = '';
-    for (let t = 0; t <= this.max + 1e-6; t += 0.5) {
+    const step = this.max > 3 ? 1 : 0.5;
+    for (let t = 0; t <= this.max + 1e-6; t += step) {
       const d = document.createElement('span');
       d.style.left = (t / this.max * 100) + '%';
-      d.textContent = t.toFixed(1) + 's';
+      d.textContent = t.toFixed(step < 1 ? 1 : 0) + 's';
       ticks.appendChild(d);
     }
     for (const el of this.dots.values()) el.remove();
     this.dots.clear();
     $('wind').hidden = !L.wind;
+    const box = $('ctypes');
+    box.hidden = types.length < 2;
+    box.innerHTML = types.map((t, i) => `<button data-type="${t.id}" title="Key ${i + 1}">${t.icon} ${t.name}</button>`).join('');
+    for (const b of box.querySelectorAll('button'))
+      b.addEventListener('click', e => { e.stopPropagation(); this.g.setChargeType(b.dataset.type); });
+    this.setChargeType(type);
     this.setMode('rig');
+  }
+
+  setChargeType(id) {
+    for (const b of $('ctypes').querySelectorAll('button')) b.classList.toggle('on', b.dataset.type === id);
   }
 
   setMode(mode) { $('hud').dataset.mode = mode; }
 
   setCharges(charges, selected, L) {
-    $('charges').textContent = `💣 ${charges.length} / ${L.maxCharges}`;
+    $('charges').textContent = `💣 ${charges.length} / ${L.sandbox ? '∞' : L.maxCharges}`;
     $('btn-detonate').disabled = !charges.length;
-    $('btn-clear').hidden = !!L.locked || !charges.length;
+    $('btn-clear').hidden = !charges.length;
     for (const [ch, el] of this.dots) if (!charges.includes(ch)) { el.remove(); this.dots.delete(ch); }
     // stack dots that share a spot on the track into lanes
     const sorted = charges.slice().sort((a, b) => a.delay - b.delay);
@@ -114,11 +118,10 @@ export class UI {
       el.style.left = (ch.delay / this.max * 100) + '%';
       el.style.top = (4 + lane * 30) + 'px';
       el.style.background = delayColor(ch.delay / this.max);
-      el.classList.toggle('sel', ch === selected);
+      el.className = `dot t-${ch.type}` + (ch === selected ? ' sel' : '');
     }
     const sel = $('tl-sel');
-    if (L.locked) sel.textContent = 'Already rigged: just hit DETONATE';
-    else if (selected) sel.textContent = `Charge ${selected.n} fires at ${selected.delay.toFixed(2)} s`;
+    if (selected) sel.textContent = `Charge ${selected.n} fires at ${selected.delay.toFixed(2)} s`;
     else if (charges.length) sel.textContent = 'Drag a dot to change when it fires';
     else sel.textContent = 'Tap a glowing spot to place a charge';
   }
@@ -129,14 +132,14 @@ export class UI {
     el.addEventListener('pointerdown', e => {
       e.stopPropagation();
       this.g.select(ch);
-      if (!this.g.level.locked) this.startDrag(e, ch, el);
+      this.startDrag(e, ch, el);
     });
     el.addEventListener('pointermove', e => this.dragTo(e));
     el.addEventListener('pointerup', () => { this.drag = null; });
     el.addEventListener('pointercancel', () => { this.drag = null; });
     el.addEventListener('wheel', e => {
       e.preventDefault();
-      if (!this.g.level.locked) this.g.setDelay(ch, ch.delay + (e.deltaY < 0 ? 0.05 : -0.05));
+      this.g.setDelay(ch, ch.delay + (e.deltaY < 0 ? 0.05 : -0.05));
     }, { passive: false });
     this.track.appendChild(el);
     return el;
@@ -184,40 +187,61 @@ export class UI {
 
   // ---- results ----------------------------------------------------------
 
-  showResult(res, L, opts) {
+  showResult(res, L, o, replayed = false) {
     const r = $('result');
-    const title = !res.down ? (res.damaged.length ? 'WRONG WAY!' : 'STILL STANDING')
-      : res.count === 3 ? 'PERFECT BLOWDOWN!' : 'DOWN IT GOES!';
+    let title;
+    if (L.sandbox) title = 'BOOM!';
+    else if (res.damaged.length) title = 'WRONG WAY!';
+    else if (!res.down) title = 'STILL STANDING';
+    else title = res.count === res.stars.length ? 'PERFECT BLOWDOWN!' : 'DOWN IT GOES!';
     $('res-title').textContent = title;
-    r.classList.toggle('fail', !res.down);
+    r.classList.toggle('fail', !L.sandbox && !res.passed);
     $('res-stars').innerHTML = res.stars.map((s, i) =>
       `<span class="bigstar ${s.got ? 'got' : ''}" style="animation-delay:${0.25 + i * 0.35}s">★</span>`).join('');
     const lines = res.stars.map(s => `<li class="${s.got ? 'ok' : 'no'}">${s.got ? '✔' : '✘'} ${s.label}${this.detail(s.key, res, L)}</li>`);
-    if (!res.down) lines.unshift(res.damaged.length
-      ? `<li class="no">It came down on the ${res.damaged.join(' and ').toLowerCase()}!</li>`
-      : `<li class="no">${Math.round(res.standing * 100)}% of it is still more than ${L.downHeight} m up</li>`);
+    if (res.damaged.length) lines.unshift(`<li class="no">💥 You hit the ${res.damaged.join(' and the ')}. That's an instant fail.</li>`);
+    else if (!res.down && !L.sandbox) lines.unshift(`<li class="no">${Math.round(res.standing * 100)}% of it is still more than ${L.downHeight} m up</li>`);
+    if (o.expert) lines.push(`<li class="${o.expert.got ? 'ok' : 'no'} exp">◆ Expert: ${o.expert.text}${o.expert.before && !o.expert.got ? ' <em>(already earned)</em>' : ''}</li>`);
+    if (L.sandbox) lines.push(`<li class="ok">💣 ${res.used} charges · ${Math.round(res.zonePct * 100)}% in the zone</li>`);
     $('res-list').innerHTML = lines.join('');
+
+    const cash = $('res-cash');
+    cash.hidden = !o.cash && !o.rankUp;
+    cash.innerHTML = (o.cash ? `<b>+${money(o.cash)}</b> <span>${o.notes.join(' · ')}</span>` : '') +
+      (o.rankUp ? `<div class="rankup">${o.rankUp.icon} Promoted to ${o.rankUp.name}!</div>` : '');
+    const streak = $('res-streak');
+    streak.hidden = !o.streak;
+    streak.textContent = `🔥 Daily streak: ${o.streak}`;
+
     const hint = $('res-hint');
-    hint.hidden = !opts.hint;
-    if (opts.hint) $('res-hint-text').textContent = opts.hint;
-    $('btn-next').hidden = !(res.down && opts.hasNext);
-    $('btn-next').textContent = 'Next job ▶';
+    hint.hidden = !o.hint;
+    if (o.hint) $('res-hint-text').textContent = o.hint;
+    $('btn-showme').hidden = !o.canShowMe;
+    $('btn-showme').textContent = `Show me how (${money(o.hintPrice)})`;
+    $('btn-next').hidden = !o.hasNext;
+    $('btn-next').textContent = o.nextLabel;
+    $('btn-share').hidden = !o.canShare;
+    $('btn-clip').hidden = !o.canClip;
     r.hidden = false;
     this.setMode('result');
-    res.stars.forEach((s, i) => { if (s.got) setTimeout(() => this.g.sfx.ding(i), 250 + i * 350); });
+    if (!replayed) res.stars.forEach((s, i) => { if (s.got) setTimeout(() => this.g.sfx.ding(i), 250 + i * 350); });
   }
 
   detail(key, res, L) {
     if (key === 'zone' && zonesOf(L).length) return ` <em>${Math.round(res.zonePct * 100)}% in (need ${Math.round((L.zoneReq ?? 0.7) * 100)}%)</em>`;
     if (key === 'budget') return ` <em>used ${res.used}</em>`;
-    if (key === 'clean' && res.damaged.length) return ` <em>hit: ${res.damaged.join(', ')}</em>`;
     if (key === 'air') return ` <em>${res.crowdDust} puffs reached them</em>`;
     return '';
   }
 
   hideResult() { $('result').hidden = true; }
   showPause(on) { $('pause').hidden = !on; }
-  replayBadge(on) { $('replay-badge').hidden = !on; }
+
+  replayBadge(on, recording = false) {
+    $('replay-badge').hidden = !on;
+    $('replay-label').textContent = recording ? '● RECORDING CLIP' : '▶ REPLAY · SLOW-MO';
+    $('btn-skip').hidden = recording;
+  }
 
   debug(text) {
     const d = $('debug');

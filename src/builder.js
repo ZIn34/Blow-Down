@@ -96,13 +96,14 @@ export class Builder {
   // Multi-storey concrete frame: a grid of columns per floor with a slab on top.
   // clad: { mat, color, skin } adds facade panels from floor `cladFrom` upward.
   // glassGround: fragile shop-window panels on the ground floor.
+  // base: height the frame stands on (to stack a tower on a podium).
   frame({ x0, z0, nx, nz, bay, bayZ = bay, floors, fh = 3.2, col = 0.6, slabT = 0.4,
           mat = 'concrete', color, rig = [0], clad = null, cladFrom = 1,
-          glassGround = false, tag = 'f' }) {
+          glassGround = false, tag = 'f', base = 0 }) {
     const X = i => x0 + i * bay, Z = j => z0 + j * bayZ;
     const ch = fh - slabT;
     for (let f = 0; f < floors; f++) {
-      const y0 = f * fh;
+      const y0 = base + f * fh;
       for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) {
         const c = this.col(X(i), Z(j), y0, ch, col, mat, { rig: rig.includes(f), color, tag: `${tag}${f}_${i}_${j}` });
         c.floor = f; c.gi = i; c.gj = j;
@@ -124,7 +125,7 @@ export class Builder {
         this.box(X(nx), y0, cz, t, ch, w, panel.mat, opts);
       }
     }
-    return { x0: X(0), x1: X(nx), z0: Z(0), z1: Z(nz), h: floors * fh };
+    return { x0: X(0), x1: X(nx), z0: Z(0), z1: Z(nz), h: base + floors * fh };
   }
 
   prop(type, x, z, o = {}) {

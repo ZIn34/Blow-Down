@@ -278,6 +278,19 @@ const BUILDERS = {
     return solids;
   },
 
+  // supply ship moored alongside, bow pointing along z
+  ship(g) {
+    box(g, 7, 3, 26, 0x2a4a6a, 0, 0, 0);
+    box(g, 7.05, 0.6, 26.05, 0xc0392b, 0, 0, 0);
+    box(g, 6, 0.4, 24, 0xd8d8d8, 0, 3, 0);
+    box(g, 5.5, 5, 6, 0xf2f2f2, 0, 3.4, 7);
+    box(g, 5.6, 1, 6.1, 0x2a3a4a, 0, 7, 7);
+    box(g, 0.6, 5, 0.6, 0xd94a2b, 0, 3.4, -6);
+    box(g, 4, 1.5, 3, 0xf2c14e, 0, 3.4, -2);
+    g.userData.onHit = () => { g.rotation.z = 0.12; };
+    return [[0, 0, 0, 7, 8.4, 26]];
+  },
+
   stalls(g, o) {
     const cols = [0xd94a4a, 0x3a7bd5, 0xf2c14e, 0x4caf50];
     for (let i = 0; i < (o.n || 4); i++) {

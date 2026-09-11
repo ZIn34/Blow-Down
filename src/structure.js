@@ -198,15 +198,21 @@ export class Structure {
 
   // ---- demolition --------------------------------------------------------
 
+  // targets: chunks, or { chunk, type } where type is
+  //   'std'    - takes out its chunk plus, on brittle material or blast-radius levels, nearby supports
+  //   'cutter' - takes out only its own chunk
+  //   'heavy'  - also takes out supports within 3.2 m
   blast(targets) {
     const killed = new Set(), points = [];
-    for (const c of targets) {
+    for (const t of targets) {
+      const c = t.chunk || t, type = t.type || 'std';
       if (c.dead) continue;
       const p = this.worldPos(c);
       points.push(p);
-      this.emit('blast', p, { size: c.rad });
+      this.emit('blast', p, { size: c.rad * (type === 'heavy' ? 1.6 : 1), type });
       killed.add(c);
-      const rad = Math.max(this.blastRadius, MATERIALS[c.mat].blast || 0);
+      let rad = type === 'cutter' ? 0 : Math.max(this.blastRadius, MATERIALS[c.mat].blast || 0);
+      if (type === 'heavy') rad = Math.max(rad, 3.2);
       if (rad > 0) for (const o of this.chunks)
         if (!o.dead && o.rig && o.building === c.building && !killed.has(o) &&
             this.worldPos(o, null, _p).distanceTo(p) < rad) killed.add(o);

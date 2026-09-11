@@ -28,7 +28,7 @@ export const CHAPTER2 = [
     name: 'Twin Towers', theme: 'day',
     intro: 'Two water towers and a farmhouse in the middle. Every charge goes on one timeline, so plan both at once.',
     hint: 'Rig the two legs on the outside of each tower so they both fall away from the house.',
-    maxCharges: 6, par: 4, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 6, par: 4, stars: ['down', 'zone', 'budget'],
     zones: [[7, -6, 26, 6], [-26, -6, -7, 6]], zoneReq: 0.55, downHeight: 6.6,
     camera: { target: [0, 6, 0], dist: 55, yaw: 0, pitch: 0.3 },
     build(b) {
@@ -45,7 +45,7 @@ export const CHAPTER2 = [
     name: 'Radio Mast', theme: 'day',
     intro: 'Thirty metres of steel and a narrow strip to land it in. There are houses on both sides.',
     hint: "Both legs on the side facing the strip. One leg alone sends it off at an angle.",
-    maxCharges: 3, par: 2, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 3, par: 2, stars: ['down', 'zone', 'budget'],
     zone: [3, -3.5, 40, 3.5], zoneReq: 0.55, downHeight: 5,
     camera: { target: [15, 8, 0], dist: 64, yaw: 0.12, pitch: 0.36 },
     build(b) {
@@ -73,7 +73,7 @@ export const CHAPTER2 = [
     name: 'Cooling Tower', theme: 'dusk',
     intro: 'Each charge takes out the leg it sits on and the legs next to it. Space them out.',
     hint: 'Four charges on every third leg. Nothing is left standing, so nothing can tip it.',
-    maxCharges: 5, par: 4, blastRadius: 4.5, minSupport: 0.2, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 5, par: 4, blastRadius: 4.5, minSupport: 0.2, stars: ['down', 'zone', 'budget'],
     zone: [-10.5, -10.5, 10.5, 10.5], zoneReq: 0.75, downHeight: 8,
     camera: { target: [0, 13, 0], dist: 74, yaw: 0.3, pitch: 0.3 },
     build(b) {
@@ -94,7 +94,7 @@ export const CHAPTER2 = [
     name: 'Office Block', setting: 'city', theme: 'day',
     intro: "There's an empty lot out front, and a train parked behind. Tipping it takes a lot fewer charges than dropping it.",
     hint: 'Only the front row of columns, on the side facing the empty lot. Five charges.',
-    maxCharges: 10, par: 5, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 10, par: 5, stars: ['down', 'zone', 'budget'],
     zone: [-11, -30, 11, 0], zoneReq: 0.6, downHeight: 8,
     camera: { target: [0, 8, -6], dist: 62, yaw: 0.4, pitch: 0.33 },
     build(b) {
@@ -113,7 +113,7 @@ export const CHAPTER2 = [
     name: 'Stadium Lights', setting: 'city', theme: 'dusk',
     intro: 'Three floodlight towers, one timeline. All three have to land on the pitch, not in the stands.',
     hint: 'A falling tower goes toward the side you cut. Put charges on the pitch side of each base, two per tower.',
-    maxCharges: 8, par: 6, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 8, par: 6, stars: ['down', 'zone', 'budget'],
     zone: [-30, -34, 30, -2], zoneReq: 0.6, downHeight: 5,
     camera: { target: [0, 8, -6], dist: 76, yaw: 0.2, pitch: 0.42 },
     build(b) {
@@ -127,7 +127,7 @@ export const CHAPTER2 = [
     name: 'Lighthouse', setting: 'coast', theme: 'dusk',
     intro: "Old brick again. Put it in the sea, not on the keeper's cottage or the boathouse.",
     hint: 'Two charges, side by side, on the side facing the sea.',
-    maxCharges: 4, par: 2, minSupport: 0.3, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 4, par: 2, minSupport: 0.3, stars: ['down', 'zone', 'budget'],
     zone: [-5, 6, 5, 36], zoneReq: 0.5, downHeight: 6.5,
     camera: { target: [0, 9, 6], dist: 58, yaw: 0.35, pitch: 0.3 },
     build(b) {
@@ -151,7 +151,7 @@ export const CHAPTER2 = [
     name: 'Flour Mill', theme: 'day',
     intro: "It's market day and the wind is blowing toward the stalls. Keep the flour dust off the shoppers.",
     hint: 'Blow the row of columns on the side away from the market. It falls that way and takes the dust with it.',
-    maxCharges: 9, par: 3, stars: ['zone', 'clean', 'air'],
+    maxCharges: 9, par: 3, stars: ['down', 'zone', 'air'],
     zone: [-6, 4.5, 6, 30], zoneReq: 0.55, downHeight: 10, wind: [0, -3],
     camera: { target: [0, 9, -2], dist: 60, yaw: 0.4, pitch: 0.3 },
     build(b) {
@@ -170,7 +170,7 @@ export const CHAPTER2 = [
     name: 'Clock Tower', setting: 'city', theme: 'day',
     intro: 'The bottom three floors are a listed monument and have to stay. Only the top comes down, and you can only rig four columns.',
     hint: 'The two columns on the side facing the square. The top half tips into the square and leaves the bottom standing.',
-    maxCharges: 4, par: 2, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 4, par: 2, stars: ['down', 'zone', 'budget'],
     zone: [-7, 4, 7, 34], zoneReq: 0.5, downHeight: 13,
     camera: { target: [0, 12, 6], dist: 58, yaw: 0.35, pitch: 0.3 },
     build(b) {
@@ -193,7 +193,7 @@ export const CHAPTER2 = [
     name: 'Twin Apartments', setting: 'city', theme: 'night',
     intro: "Two apartment blocks with a playground between them. Both have to go tonight, and neither can touch the swings.",
     hint: 'Rig the outer row of each block, the sides facing away from the playground. Both tip outward.',
-    maxCharges: 14, par: 10, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 14, par: 10, stars: ['down', 'zone', 'budget'],
     zones: [[-44, -11, -8.5, 11], [8.5, -11, 44, 11]], zoneReq: 0.6, downHeight: 9,
     camera: { target: [0, 10, 0], dist: 78, yaw: 0.15, pitch: 0.33 },
     build(b) {
@@ -212,7 +212,7 @@ export const CHAPTER2 = [
     name: 'The Skyscraper', setting: 'city', theme: 'dusk',
     intro: 'Fourteen floors, a museum, an office tower and apartments packed around it, and the whole city watching. This is the big one.',
     hint: 'Implode it: the middle ground-floor columns at 0.0s and the rest about 0.3s later. Charges on floor 2 are optional.',
-    maxCharges: 24, par: 16, maxDelay: 3, stars: ['zone', 'budget', 'clean'],
+    maxCharges: 24, par: 16, maxDelay: 3, stars: ['down', 'zone', 'budget'],
     zone: [-12, -10, 12, 10.5], zoneReq: 0.7, downHeight: 14, tv: true,
     camera: { target: [0, 16, 0], dist: 95, yaw: 0.35, pitch: 0.26 },
     build(b) {
